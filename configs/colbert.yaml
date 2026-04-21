@@ -1,0 +1,18 @@
+# ColBERT (RAGatouille) configuration
+dataset: scifact
+split: test
+topk: 100
+
+model:
+  checkpoint: colbert-ir/colbertv2.0
+  max_document_length: 256
+  max_query_length: 32
+
+index:
+  nbits: 2            # residual compression bits
+  index_name: scifact_nbits2
+  use_faiss: true
+
+search:
+  batch_size: 32
+  query_max_length: 32

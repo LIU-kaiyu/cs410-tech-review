@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data & indices (large, regenerable)
+data/raw/
+data/processed/
+.ragatouille/
+indexes/
+*.faiss
+*.index
+*.pt
+*.bin
+
+# Results kept under version control selectively
+results/runs/*.trec
+results/metrics/*.json
+results/metrics/*.csv
+results/figures/*.png
+results/figures/*.pdf
+!results/**/.gitkeep
+
+# LaTeX
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.bbl
+report/*.blg
+report/*.synctex.gz
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+*.key

@@ -1,0 +1,17 @@
+# BM25 (rank_bm25) configuration
+dataset: scifact
+split: test
+topk: 100
+
+bm25:
+  # Okapi BM25 parameters (rank_bm25 defaults)
+  k1: 1.5
+  b: 0.75
+  epsilon: 0.25
+
+tokenizer:
+  lowercase: true
+  remove_punct: true
+  # English stopwords from nltk / sklearn. 'none' disables stopword removal.
+  stopwords: english
+  min_token_len: 2
