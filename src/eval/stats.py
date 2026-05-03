@@ -11,7 +11,12 @@ from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
 
-from ..utils import get_logger
+try:
+    from ..utils import get_logger
+except ImportError:
+    import logging
+    def get_logger(name: str):  # type: ignore[misc]
+        return logging.getLogger(name)
 
 log = get_logger(__name__)
 
