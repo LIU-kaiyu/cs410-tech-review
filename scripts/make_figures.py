@@ -165,6 +165,47 @@ def _plot_nbits_latency(metrics_dir: Path, out_dir: Path) -> None:
     plt.close(fig)
 
 
+def _plot_nbits_ablation_bars(metrics_dir: Path, out_dir: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    records_path = metrics_dir / "ablation_nbits.json"
+    if not records_path.exists():
+        log.info("No ablation_nbits.json — skipping nbits ablation bar plot.")
+        return
+    with open(records_path, "r", encoding="utf-8") as f:
+        records: List[dict] = json.load(f)
+    if not records:
+        return
+    records.sort(key=lambda r: r["nbits"])
+
+    labels = [f"nbits={r['nbits']}" for r in records]
+    sizes = [r["index_mib"] for r in records]
+    ndcgs = [r["metrics"].get("ndcg@10", 0.0) for r in records]
+
+    fig, axes = plt.subplots(1, 2, figsize=(9, 4.2))
+
+    axes[0].bar(labels, sizes, color="#4C78A8")
+    axes[0].set_ylabel("Index size (MiB)")
+    axes[0].set_title("Measured index size")
+    axes[0].set_ylim(0, max(sizes) * 1.2)
+    for i, value in enumerate(sizes):
+        axes[0].text(i, value, f"{value:.2f}", ha="center", va="bottom", fontsize=9)
+
+    axes[1].bar(labels, ndcgs, color="#54A24B")
+    axes[1].set_ylabel("NDCG@10")
+    axes[1].set_title("Retrieval quality")
+    axes[1].set_ylim(0.62, 0.72)
+    for i, value in enumerate(ndcgs):
+        axes[1].text(i, value, f"{value:.4f}", ha="center", va="bottom", fontsize=9)
+
+    fig.suptitle("ColBERT nbits ablation on SciFact")
+    fig.tight_layout()
+    out_path = out_dir / "nbits_ablation_bars.png"
+    fig.savefig(out_path, dpi=150)
+    log.info("Wrote %s", out_path)
+    plt.close(fig)
+
+
 def main() -> int:
     args = parse_args()
     metrics_dir = Path(args.metrics_dir)
@@ -175,6 +216,7 @@ def main() -> int:
     _plot_nbits_quality_vs_size(metrics_dir, out_dir)
     _plot_bm25_colbert_deltas(metrics_dir, out_dir)
     _plot_nbits_latency(metrics_dir, out_dir)
+    _plot_nbits_ablation_bars(metrics_dir, out_dir)
     return 0
 
 
