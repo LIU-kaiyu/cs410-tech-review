@@ -12,7 +12,7 @@
 
 \begin{document}
 
-\title{Technical Review of ColBERTv2 Retrieval with RAGatouille on SciFact}
+\title{Technical Review of ColBERT Retrieval Using the RAGatouille Library}
 
 \author{Kaiyu Liu}
 \email{kaiyul3@illinois.edu}
@@ -35,91 +35,153 @@
 \renewcommand{\shortauthors}{Liu and Zeng}
 
 \begin{abstract}
-This technical review evaluates ColBERTv2, a late-interaction neural retrieval
-model, through the RAGatouille Python library. We compare ColBERTv2 against an
-Okapi BM25 baseline on the BEIR SciFact benchmark and study the effect of
-ColBERT residual-compression bit width on retrieval quality, index size, build
-time, and query latency. The review focuses on both retrieval effectiveness and
-the practical engineering work needed to reproduce ColBERT-style retrieval in a
-small scientific claim-search setting.
+Our proposal planned a technical review of ColBERT retrieval through the
+RAGatouille library, using SciFact to compare neural late-interaction retrieval
+against a traditional sparse BM25 baseline. This final review follows that plan
+closely. We implement a reproducible BM25 baseline, deploy ColBERTv2 with
+RAGatouille, ablate ColBERT residual-compression bit width
+(\texttt{nbits} = 1, 2, 4), evaluate with \texttt{ranx}, and run paired
+significance tests. On BEIR SciFact, ColBERTv2 improves over BM25 on all
+aggregate retrieval metrics: NDCG@10 rises from 0.6641 to 0.6924, MRR@10 from
+0.6317 to 0.6693, MAP from 0.6251 to 0.6623, and Recall@100 from 0.8759 to
+0.9120. However, after Holm-Bonferroni correction, these gains are not
+statistically significant on the 300-query test set. The residual-compression
+ablation produced an important engineering result: after verifying that
+RAGatouille received the requested \texttt{nbits} values, all three settings
+produced identical rankings and identical measured index sizes on this small
+corpus.
 \end{abstract}
 
-\keywords{Information Retrieval, ColBERT, RAGatouille, BM25, SciFact, Late Interaction}
+\keywords{Information Retrieval, ColBERT, RAGatouille, Late Interaction, BM25, SciFact}
 
 \maketitle
 
 \section{Introduction}
 
-Retrieval-augmented systems depend on a retriever that can find relevant
-evidence even when a query and a document do not share exact words. BM25 remains
-a strong sparse baseline because it is simple, fast, and interpretable, but it
-cannot directly model semantic matches. ColBERTv2 addresses this gap with
-contextual token embeddings and a late-interaction scoring function that keeps
-many of BERT's semantic benefits while avoiding a full cross-encoder pass over
-every query-document pair.
+The original proposal framed this project as a practical technical review of
+ColBERT using RAGatouille. The motivation was that modern retrieval-augmented
+generation systems depend on a strong retriever: if the retriever cannot find
+the right evidence, the generator cannot recover the missing information later.
+BM25 is still a strong and simple sparse retrieval baseline, but it relies on
+lexical overlap. Scientific claim retrieval often needs more than lexical
+overlap, because a claim and its supporting abstract may use related but not
+identical terminology.
 
-This review studies whether RAGatouille makes ColBERTv2 practical for a course
-scale reproduction study. Our experiment uses SciFact, where claims must retrieve
-scientific abstracts that support or refute them.
+ColBERT is designed for this setting. It encodes queries and documents into
+token-level contextual embeddings, stores document vectors offline, and scores a
+query-document pair with late interaction. RAGatouille makes this technology
+usable from a smaller Python API, so the central question of this review is not
+only ``Does ColBERT beat BM25?'', but also ``What engineering work is required
+to reproduce and inspect ColBERT results through RAGatouille?''
 
-\section{Background}
+This final report directly follows the proposal's four planned phases:
 
-\subsection{BM25}
+\begin{enumerate}
+  \item Environment setup and BM25 baseline on SciFact.
+  \item ColBERT deployment with RAGatouille and an \texttt{nbits} ablation.
+  \item Evaluation with standardized metrics and paired significance tests.
+  \item Synthesis into a technical review with tables, figures, and conclusions.
+\end{enumerate}
 
-BM25 ranks documents using lexical term matching with document-length
-normalization. It is a useful first-stage baseline because it requires no
-training data and can index small corpora quickly.
+\section{Technology Under Review}
 
-\subsection{ColBERTv2 and Late Interaction}
+\subsection{BM25 Baseline}
 
-ColBERT encodes each query and document independently into token-level vectors.
-At search time, each query token finds its maximum-similarity document token,
-and those maximum scores are summed. This MaxSim operation allows fine-grained
-semantic matching while keeping document representations indexable.
+BM25 ranks documents with exact-term matching, inverse document frequency, and
+document-length normalization. It is a useful baseline because it is fast,
+interpretable, and does not require neural model inference. In this project,
+BM25 represents the traditional sparse retrieval method described in the
+proposal.
+
+\subsection{ColBERT and Late Interaction}
+
+ColBERT differs from a cross-encoder ranker. A cross-encoder must jointly
+process each query-document pair, which is too expensive for first-stage search.
+ColBERT instead encodes the query and document separately. Each query token then
+finds its most similar document token, and those maximum similarities are
+summed. This MaxSim late-interaction mechanism keeps fine-grained token-level
+semantic matching while still allowing documents to be indexed in advance.
 
 \subsection{RAGatouille}
 
-RAGatouille wraps ColBERT indexing, search, and reranking behind a smaller
-Python API. In this project, it is used to build PLAID indexes for SciFact and
-to expose ColBERT as a retriever that can be evaluated like a standard TREC run.
+RAGatouille is the library reviewed as the practical deployment layer. It wraps
+ColBERT indexing and search behind a smaller interface, making ColBERT feel more
+like a standard retriever. This is valuable for RAG applications, but our
+experiments also show that high-level wrappers still require configuration
+audits when they are used for empirical ablations.
 
-\section{Methods}
+\subsection{Residual Compression and \texttt{nbits}}
+
+The proposal highlighted residual compression as the main ColBERT ablation.
+ColBERTv2 reduces index size by quantizing residual vectors after assigning
+token embeddings to centroids. The \texttt{nbits} parameter controls how many
+bits are used for the residual code. In principle, fewer bits should reduce
+memory footprint but may lower retrieval quality; more bits should preserve more
+information but may increase storage. We test \texttt{nbits} = 1, 2, and 4.
+
+\section{Experimental Design}
 
 \subsection{Dataset}
 
-We use BEIR SciFact. The test split contains 300 queries and a 5,183-document
-corpus of scientific abstracts. Queries are scientific claims; qrels map each
-claim to relevant abstracts.
+We use BEIR SciFact, matching the proposal. The corpus contains 5,183 scientific
+abstracts. The test split contains 300 scientific claims. Each claim is treated
+as a query, and the relevance judgments identify abstracts that support or
+refute that claim. This dataset is appropriate for the review because it is
+small enough for a course reproduction study but still difficult enough to test
+semantic retrieval.
 
-\subsection{Systems}
+\subsection{Step 1: Data Preparation}
 
-The BM25 baseline uses \texttt{rank\_bm25} with lowercasing, stopword removal,
-and default Okapi parameters \texttt{k1=1.5} and \texttt{b=0.75}.
+The first step was to download SciFact through the BEIR loader and normalize it
+into project-local JSONL files. The implementation stores documents, queries,
+and qrels in a consistent schema so that BM25, ColBERT, and evaluation code all
+consume the same data. This avoids comparing systems on slightly different
+preprocessing pipelines.
 
-The ColBERT system uses the \texttt{colbert-ir/colbertv2.0} checkpoint through
-RAGatouille. We build separate indexes for \texttt{nbits} values 1, 2, and 4 to
-measure the residual-compression trade-off. The implementation records both the
-requested \texttt{nbits} and the effective \texttt{nbits} observed in the
-underlying ColBERT configuration.
+\subsection{Step 2: BM25 Baseline}
 
-\subsection{Metrics}
+The second step was to run BM25 on the full SciFact test split. The BM25
+pipeline lowercases text, removes English stopwords, filters very short tokens,
+and uses Okapi parameters \texttt{k1=1.5}, \texttt{b=0.75}, and
+\texttt{epsilon=0.25}. The system writes a TREC-format run file and a metrics
+JSON file. This creates the sparse-retrieval baseline used in every comparison.
 
-We report NDCG@10, MRR@10, MAP, and Recall@100 using \texttt{ranx}. We also
-record index size, index build time, total search time, and p50/p95 query
-latency. Statistical comparisons use paired Student's t-tests over per-query
-metric vectors with Holm-Bonferroni correction.
+\subsection{Step 3: ColBERT Deployment}
+
+The third step was to deploy \texttt{colbert-ir/colbertv2.0} through
+RAGatouille. We build one index for each \texttt{nbits} value. Each run uses
+\texttt{query\_maxlen=32}, \texttt{doc\_maxlen=256}, and retrieves the top 100
+documents for every SciFact test query.
+
+During implementation, we found that the high-level RAGatouille
+\texttt{index()} method did not expose \texttt{nbits} directly as a reliable
+keyword argument. We therefore set \texttt{rag\_model.model.config.nbits}
+before indexing and record the observed \texttt{effective\_nbits} in each
+index-stat file. This turns the ablation from a nominal parameter sweep into a
+verified parameter sweep.
+
+\subsection{Step 4: Evaluation and Significance}
+
+The final experimental step was evaluation with \texttt{ranx}. We compute
+NDCG@10, MRR@10, MAP, and Recall@100. These metrics cover ranking quality near
+the top of the list, first relevant hit quality, average precision, and broad
+candidate recall. We also store per-query metric vectors so that paired
+Student's t-tests can compare systems on the same 300 queries. Holm-Bonferroni
+correction is applied across each metric family to control multiple
+comparisons.
 
 \section{Results}
 
-Table~\ref{tab:retrieval} shows that ColBERTv2 improves over BM25 on all four
-retrieval metrics. The largest absolute gain is on Recall@100, where ColBERTv2
-retrieves relevant abstracts for more claims in the top-100 candidates. The
-NDCG@10 gain is smaller but directionally consistent with the expected benefit
-of semantic late interaction.
+\subsection{Overall Retrieval Quality}
+
+Table~\ref{tab:retrieval} reports the final retrieval metrics. ColBERTv2 is
+better than BM25 on every aggregate metric. The default ColBERT setting
+(\texttt{nbits=2}) improves NDCG@10 by +0.0283, MRR@10 by +0.0376, MAP by
++0.0371, and Recall@100 by +0.0361.
 
 \begin{table}[h]
   \centering
-  \caption{Retrieval effectiveness on BEIR SciFact test.}
+  \caption{Retrieval effectiveness on BEIR SciFact test (300 queries).}
   \label{tab:retrieval}
   \begin{tabular}{lrrrr}
     \toprule
@@ -133,89 +195,172 @@ of semantic late interaction.
   \end{tabular}
 \end{table}
 
-The paired tests show that the BM25-to-ColBERT deltas are positive but not
-statistically significant after Holm-Bonferroni correction. For the default
-\texttt{nbits=2} comparison, the NDCG@10 delta is +0.0283
-($p=0.1148$), and the MRR@10 delta is +0.0376 ($p=0.0540$). The MRR confidence
-interval is barely positive, but it does not survive the multiple-comparison
-correction used in this review.
-
-\subsection{Residual-Compression Ablation}
-
-Table~\ref{tab:latency} reports the index and latency measurements for
-\texttt{nbits} values 1, 2, and 4. The requested and effective bit widths
-matched for all runs, so the ablation is exercising the intended ColBERT
-configuration. However, all three settings produced identical ranking metrics
-and identical measured index sizes in this small SciFact setup.
-
-\begin{table}[h]
-  \centering
-  \caption{Index footprint and latency for ColBERTv2 variants.}
-  \label{tab:latency}
-  \begin{tabular}{rrrrr}
-    \toprule
-    nbits & Index MiB & Build s & p50 ms & p95 ms \\
-    \midrule
-    1 & 84.95 & 1092.6 & 63.1 & 188.0 \\
-    2 & 84.95 & 1284.5 & 69.2 & 76.5 \\
-    4 & 84.95 & 1261.4 & 66.4 & 77.8 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+Figure~\ref{fig:metrics} shows the same result visually. The important pattern
+is that ColBERT does not only improve one metric: it raises all four metrics.
+This supports the proposal's expectation that late interaction can help on
+scientific claim retrieval, where evidence may be semantically related even
+when exact word overlap is incomplete.
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=\linewidth]{../results/figures/metrics_bar.png}
-  \caption{Retrieval metrics across BM25 and ColBERTv2 variants.}
+  \caption{BM25 and ColBERTv2 retrieval metrics. ColBERTv2 improves every
+  aggregate metric, while the three \texttt{nbits} variants overlap exactly.}
   \label{fig:metrics}
 \end{figure}
 
 \begin{figure}[h]
   \centering
+  \includegraphics[width=\linewidth]{../results/figures/bm25_colbert_delta.png}
+  \caption{Metric deltas for ColBERTv2 \texttt{nbits=2} minus BM25. The largest
+  practical improvements are on MRR@10, MAP, and Recall@100.}
+  \label{fig:delta}
+\end{figure}
+
+\subsection{Statistical Interpretation}
+
+The paired tests make the conclusion more cautious. Table~\ref{tab:stats}
+reports the BM25 versus ColBERT \texttt{nbits=2} comparison. All deltas are
+positive, and the MAP and Recall@100 raw p-values are slightly below 0.05.
+However, after Holm-Bonferroni correction, none of the comparisons are marked
+significant. Therefore, the final claim should be: ColBERT shows a consistent
+positive trend over BM25 on SciFact, but this experiment does not provide strong
+enough statistical evidence to claim a decisive win under the correction used
+here.
+
+\begin{table}[h]
+  \centering
+  \caption{Paired significance tests for BM25 versus ColBERTv2 \texttt{nbits=2}.}
+  \label{tab:stats}
+  \begin{tabular}{lrrrc}
+    \toprule
+    Metric & Delta & Raw $p$ & 95\% CI & Holm sig. \\
+    \midrule
+    NDCG@10 & +0.0283 & 0.1148 & [-0.0067, 0.0609] & No \\
+    MRR@10 & +0.0376 & 0.0540 & [0.0009, 0.0724] & No \\
+    MAP & +0.0371 & 0.0501 & [0.0015, 0.0722] & No \\
+    Recall@100 & +0.0361 & 0.0473 & [0.0028, 0.0717] & No \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Residual-Compression Ablation}
+
+Table~\ref{tab:latency} reports the \texttt{nbits} ablation. The requested and
+effective bit widths match for every run, which means the ablation is using the
+intended ColBERT configuration. The result is still a null result: all three
+\texttt{nbits} values produce the same NDCG@10, the same Recall@100, and the
+same measured on-disk index size of 84.95 MiB.
+
+\begin{table}[h]
+  \centering
+  \caption{Index footprint and latency for ColBERTv2 variants.}
+  \label{tab:latency}
+  \begin{tabular}{rrrrrr}
+    \toprule
+    nbits & Eff. nbits & Index MiB & Build s & p50 ms & p95 ms \\
+    \midrule
+    1 & 1 & 84.95 & 1092.6 & 63.1 & 188.0 \\
+    2 & 2 & 84.95 & 1284.5 & 69.2 & 76.5 \\
+    4 & 4 & 84.95 & 1261.4 & 66.4 & 77.8 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Figure~\ref{fig:nbits} explains why this matters. The proposal expected a
+memory-versus-precision trade-off. On this dataset, that curve collapses into
+one point: index size and NDCG@10 do not move as \texttt{nbits} changes. The
+most likely interpretation is scale. With only 5,183 documents, fixed index
+metadata and other files can dominate total measured footprint, and the top-100
+rankings are not sensitive enough for residual precision to change the final
+metrics.
+
+\begin{figure}[h]
+  \centering
   \includegraphics[width=\linewidth]{../results/figures/nbits_size_vs_ndcg.png}
-  \caption{SciFact index size vs. NDCG@10 for ColBERTv2 residual compression.}
+  \caption{The expected size-quality trade-off is not visible on SciFact:
+  \texttt{nbits}=1, 2, and 4 all measure 84.95 MiB and 0.6924 NDCG@10.}
   \label{fig:nbits}
+\end{figure}
+
+Figure~\ref{fig:latency} shows query latency. Median latency is similar across
+settings, while \texttt{nbits=1} has a larger p95 tail in this run. Because the
+experiment ran on macOS without CUDA, these latency numbers should be treated
+as practical reproduction measurements rather than hardware-general ColBERT
+benchmarks.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{../results/figures/nbits_latency.png}
+  \caption{ColBERT query latency across residual-compression settings. Median
+  latency is similar, while \texttt{nbits=1} shows a larger p95 tail.}
+  \label{fig:latency}
 \end{figure}
 
 \section{Discussion}
 
-The experiment supports a cautious conclusion. ColBERTv2 is better than BM25
-on every aggregate metric, which matches the intuition that scientific claims
-often require semantic matching rather than exact lexical overlap. At the same
-time, the paired significance tests are not strong enough to claim a decisive
-win on this 300-query test split.
+\subsection{What Matched the Proposal}
 
-The residual-compression result is more surprising. After fixing the
-RAGatouille wrapper so that \texttt{nbits} is actually written into the
-underlying ColBERT config, all three values still produce identical rankings
-and index sizes. This suggests that, for a 5,183-document corpus, the tested
-compression setting is not the dominant factor controlling effectiveness or
-footprint. It may also indicate that other ColBERT/RAGatouille index files
-dominate total size at this scale.
+The final project matches the original proposal's activities closely. We set up
+the environment, ran BM25, deployed ColBERT through RAGatouille, varied
+\texttt{nbits}, evaluated with NDCG@10, MRR@10, MAP, and paired t-tests, and
+synthesized the findings into a technical review. The only difference is that
+we also added Recall@100, because it is useful for RAG pipelines: a generator
+only needs the correct evidence to appear somewhere in the retrieved candidate
+set before later reranking or answer generation.
 
-RAGatouille was useful, but not completely transparent. It simplified indexing
-and search, yet the project still required inspecting the wrapped ColBERT
-configuration to ensure the ablation parameter was real. That is the main
-engineering lesson from this review: high-level retrieval libraries reduce
-boilerplate, but empirical studies still need configuration audits.
+\subsection{Main Retrieval Conclusion}
+
+The main retrieval conclusion is positive but measured. ColBERTv2 consistently
+beats BM25 on the aggregate SciFact metrics. This is aligned with the technical
+motivation for late interaction: token-level contextual embeddings can match
+meaning beyond exact term overlap. However, the statistical test prevents us
+from overstating the result. The correct final wording is not ``ColBERT is
+significantly better,'' but rather ``ColBERT shows consistent improvements over
+BM25 in this reproduction, with gains that are not Holm-significant on 300
+queries.''
+
+\subsection{Main Engineering Conclusion}
+
+The main engineering conclusion is that RAGatouille lowers the implementation
+barrier but does not remove the need for inspection. The most important bug
+found during the project was that \texttt{nbits} could not simply be assumed to
+flow through the wrapper. We fixed this by setting the underlying ColBERT
+configuration directly and saving \texttt{effective\_nbits}. This is exactly
+the kind of practical lesson a technical review should capture: easy-to-use
+libraries are helpful, but reproducible experiments need explicit checks of the
+parameters being studied.
+
+\subsection{Why the \texttt{nbits} Result Is Still Useful}
+
+At first, the \texttt{nbits} result looks disappointing because it does not show
+the expected memory-quality trade-off. It is still informative. It tells us
+that on a small 5K-document benchmark, changing residual bit width may not
+affect ranking quality or measured total index footprint. A larger corpus would
+be needed to test whether the theoretical compression trade-off becomes visible
+once vector payloads dominate fixed index overhead.
 
 \section{Limitations}
 
-This review uses one relatively small benchmark and a pretrained ColBERTv2
-checkpoint. We do not fine-tune on SciFact. All ColBERT runs were executed on
-macOS without CUDA, so index construction was slow: each full SciFact ColBERT
-index took roughly 18--21 minutes to build. A CUDA machine would likely produce
-different latency and build-time numbers. Dependency versions also mattered:
-RAGatouille 0.0.9 required the older LangChain 0.1 API, so the environment had
-to pin \texttt{langchain<0.2}.
+This review uses one benchmark and one pretrained checkpoint. We did not
+fine-tune ColBERTv2 on SciFact. The full ColBERT runs were executed on macOS
+without CUDA; therefore build time and latency are not representative of a
+GPU-optimized deployment. The dataset is also small for compression analysis,
+so the \texttt{nbits} ablation should be interpreted as a SciFact-scale result,
+not as a universal conclusion about ColBERTv2 compression.
 
 \section{Conclusion}
 
-ColBERTv2 is a strong candidate retriever for RAG-style systems because it
-keeps token-level semantic matching while remaining indexable. RAGatouille
-substantially lowers the implementation burden, but the residual-compression
-ablation shows that some internal ColBERT configuration must still be verified
-carefully before drawing empirical conclusions.
+This project completes the proposal's technical review plan. RAGatouille made
+it feasible to deploy ColBERTv2 on SciFact and compare it against BM25 in a
+course-scale reproduction. ColBERTv2 improved every aggregate retrieval metric,
+especially broad candidate recall, but the improvements were not statistically
+significant after Holm correction. The \texttt{nbits} ablation produced a
+careful null result: once the parameter was verified, different residual
+compression bit widths did not change quality or measured index size on this
+small corpus. Overall, the review supports ColBERT/RAGatouille as a practical
+retrieval tool while emphasizing that empirical claims still require careful
+configuration checks, per-query evaluation, and cautious statistical language.
 
 \begin{thebibliography}{9}
 
