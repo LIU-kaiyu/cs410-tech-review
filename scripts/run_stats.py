@@ -77,7 +77,7 @@ def main() -> int:
     out = Path(args.out)
     ensure_dir(out.parent)
     with open(out, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     log.info("Wrote %d rows to %s", len(rows), out)

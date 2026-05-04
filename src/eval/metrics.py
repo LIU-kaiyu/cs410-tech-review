@@ -98,11 +98,11 @@ def evaluate_run(
     metrics = list(metrics)
     qrels_ranx, run_ranx = _to_ranx(qrels_map, run)
 
-    agg = evaluate(qrels_ranx, run_ranx, metrics=metrics, return_mean=True)
+    agg = evaluate(qrels_ranx, run_ranx, metrics=metrics, return_mean=True, make_comparable=True)
     if isinstance(agg, float):
         agg = {metrics[0]: agg}
 
-    per_q_raw = evaluate(qrels_ranx, run_ranx, metrics=metrics, return_mean=False)
+    per_q_raw = evaluate(qrels_ranx, run_ranx, metrics=metrics, return_mean=False, make_comparable=True)
     # ranx returns {metric: [per-query values]} aligned to qrels qid order.
     qids = list(qrels_ranx.qrels.keys())
     per_query: Dict[str, Dict[str, float]] = {qid: {} for qid in qids}

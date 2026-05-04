@@ -4,6 +4,23 @@ CS410 Technical Review — an empirical study of ColBERTv2 late-interaction retr
 RAGatouille wrapper, benchmarked against a BM25 sparse-retrieval baseline on the BEIR SciFact
 benchmark, with a residual-compression ablation over `nbits ∈ {1, 2, 4}`.
 
+## Current Status
+
+The BM25 baseline and the ColBERTv2/RAGatouille runs are complete on the BEIR
+SciFact test split. ColBERTv2 improves over BM25 on every aggregate metric:
+NDCG@10 rises from `0.6641` to `0.6924`, MRR@10 from `0.6317` to `0.6693`,
+MAP from `0.6251` to `0.6623`, and Recall@100 from `0.8759` to `0.9120`.
+
+The residual-compression ablation over `nbits ∈ {1, 2, 4}` also completed. The
+saved index stats record both requested `nbits` and observed `effective_nbits`;
+all three runs matched the requested value. On this small 5,183-document corpus,
+all three bit widths produced identical retrieval metrics and identical measured
+index sizes.
+
+The final LaTeX source is in `report/report.tex`. This machine does not have
+`pdflatex`/`latexmk`, so compile it on Overleaf or install a local TeX
+distribution before running `make report`.
+
 ## Project Goals
 
 1. Establish a reproducible BM25 baseline on SciFact test (NDCG@10, MRR@10, MAP, Recall@100).
@@ -77,6 +94,7 @@ make bm25        # BM25 baseline -> results/runs/bm25.trec
 make colbert     # ColBERT nbits=2 -> results/runs/colbert_nbits2.trec
 make ablation    # Sweep nbits in {1, 2, 4}
 make eval EXP=bm25
+make stats       # Paired t-tests + Holm-Bonferroni correction
 make figures
 make report
 ```

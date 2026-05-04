@@ -24,6 +24,7 @@ log = get_logger(__name__)
 @dataclass
 class AblationRecord:
     nbits: int
+    effective_nbits: int
     n_docs: int
     n_queries: int
     build_time_s: float
@@ -37,6 +38,7 @@ class AblationRecord:
     def flat(self) -> Dict[str, float | int | str]:
         out: Dict[str, float | int | str] = {
             "nbits": self.nbits,
+            "effective_nbits": self.effective_nbits,
             "n_docs": self.n_docs,
             "n_queries": self.n_queries,
             "build_time_s": self.build_time_s,
@@ -100,6 +102,7 @@ def run_sweep(
 
             rec = AblationRecord(
                 nbits=nbits,
+                effective_nbits=index_stats.effective_nbits,
                 n_docs=index_stats.n_docs,
                 n_queries=latency.n_queries,
                 build_time_s=index_stats.build_time_s,
@@ -127,7 +130,7 @@ def _write_summary_csv(records: Sequence[AblationRecord], path: Path) -> None:
         return
     headers = list(records[0].flat().keys())
     with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=headers)
+        writer = csv.DictWriter(f, fieldnames=headers, lineterminator="\n")
         writer.writeheader()
         for r in records:
             writer.writerow(r.flat())

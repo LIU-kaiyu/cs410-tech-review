@@ -31,12 +31,9 @@ indexes/
 *.pt
 *.bin
 
-# Results kept under version control selectively
+# Large run files are regenerable. Metrics and figures are intentionally kept
+# trackable so the final report can cite committed artifacts.
 results/runs/*.trec
-results/metrics/*.json
-results/metrics/*.csv
-results/figures/*.png
-results/figures/*.pdf
 !results/**/.gitkeep
 
 # LaTeX
