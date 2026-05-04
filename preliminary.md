@@ -1,165 +1,138 @@
-# Preliminary Report — ColBERTv2 vs. BM25 on BEIR SciFact
+# Final Progress Report — ColBERTv2 vs. BM25 on BEIR SciFact
 
 **Course:** CS410 Technical Review
-**Author:** Kyle B.
-**Date:** 2026-05-03
-**Status:** Work-in-progress; final report pending.
+**Authors:** Kaiyu Liu and Yuyang Zeng
+**Date:** 2026-05-04
+**Status:** Experiments, metrics, figures, and report draft are complete. Final
+PDF compilation remains, because this local machine does not currently have a
+TeX compiler installed.
 
 ## 1. Summary
 
-This project benchmarks ColBERTv2 late-interaction retrieval (via the
-RAGatouille wrapper) against a BM25 baseline on the BEIR SciFact dataset
-(5,183 docs / 300 test queries) and ablates ColBERTv2's residual compression
-parameter `nbits ∈ {1, 2, 4}`. Headline numbers from runs completed to date:
-ColBERT (`nbits=2`) improves over BM25 by **+2.6 NDCG@10**, **+3.3 MRR@10**,
-**+3.3 MAP**, and **+4.0 Recall@100** percentage points on SciFact test.
-Significance testing, the `nbits=1` ablation point, and an investigation of
-the surprisingly identical `nbits=2` vs. `nbits=4` results are still
-outstanding.
+This project benchmarks ColBERTv2 late-interaction retrieval through the
+RAGatouille wrapper against a BM25 baseline on the BEIR SciFact dataset
+(5,183 documents / 300 test queries). It also ablates ColBERTv2 residual
+compression with `nbits ∈ {1, 2, 4}`.
+
+The final experiment shows that ColBERTv2 improves over BM25 on all measured
+retrieval metrics, though the paired tests do not reach Holm-corrected
+statistical significance on this 300-query SciFact test set. The `nbits`
+variants produce identical rankings and identical measured index sizes in this
+small-corpus setup after verifying that RAGatouille received the requested
+`effective_nbits` values.
 
 ## 2. Methods
 
-- **Dataset:** BEIR SciFact (test split: 300 queries, 5,183 documents,
-  3 graded relevance levels). Loaded via the BEIR loader and normalized to
-  JSONL through [src/data/load_scifact.py](src/data/load_scifact.py).
-- **BM25 baseline:** `rank_bm25` with `k1=1.5, b=0.75, ε=0.25`, lowercased,
-  English stopwords removed, `min_token_len=2`. Implemented in
+- **Dataset:** BEIR SciFact test split, loaded through the BEIR loader and
+  normalized to JSONL with [src/data/load_scifact.py](src/data/load_scifact.py).
+- **BM25 baseline:** `rank_bm25` with `k1=1.5`, `b=0.75`, `epsilon=0.25`,
+  lowercasing, English stopword removal, and `min_token_len=2`. Implementation:
   [src/baselines/bm25.py](src/baselines/bm25.py).
-- **ColBERTv2:** Checkpoint `colbert-ir/colbertv2.0` (110M-param BERT-base
-  encoder producing 128-dim per-token vectors), `query_maxlen=32`,
-  `doc_maxlen=256`. Indexed and queried via RAGatouille
-  ([src/colbert/index.py](src/colbert/index.py),
-  [src/colbert/search.py](src/colbert/search.py)).
-- **Ablation:** [src/ablation/nbits_sweep.py](src/ablation/nbits_sweep.py)
-  builds one index per `nbits` value, runs all 300 test queries, and emits
-  per-variant TREC run files plus a summary CSV/JSON.
-- **Evaluation:** All metrics computed by **ranx**
-  ([src/eval/metrics.py](src/eval/metrics.py)) — NDCG@10, MRR@10, MAP,
-  Recall@100. Per-query metric vectors are persisted to JSON so paired
-  significance tests do not require re-running retrieval.
-- **Significance testing:** Paired Student's t-test on per-query metric
-  vectors (`scipy.stats.ttest_rel`) with Holm-Bonferroni correction across
-  the family of comparisons, plus 2,000-resample bootstrap 95% CIs.
-  Implementation: [src/eval/stats.py](src/eval/stats.py)
-  (`paired_ttest`, `bootstrap_ci`, `holm_bonferroni`). Validated by 9 unit
-  tests in [tests/test_stats.py](tests/test_stats.py) covering null deltas,
-  qid alignment/order invariance, bootstrap CI bounds, and the
-  Holm-Bonferroni step-down algorithm; all 9 pass under the project's
-  Python 3.10 / scipy 1.11 stack. The infrastructure has not yet been
-  *applied* to the BM25-vs-ColBERT runs (that step lives in
-  [notebooks/04_analysis_and_figures.ipynb](notebooks/04_analysis_and_figures.ipynb)
-  and is the §5.1 next action).
-- **Hardware:** GPU run (CUDA). Full ColBERT indexing of SciFact at one
-  `nbits` setting builds in ~19 s; querying all 300 test queries finishes
-  in 100–140 s.
+- **ColBERTv2:** Checkpoint `colbert-ir/colbertv2.0`, `query_maxlen=32`,
+  `doc_maxlen=256`, indexed and queried through RAGatouille. Implementation:
+  [src/colbert/index.py](src/colbert/index.py) and
+  [src/colbert/search.py](src/colbert/search.py).
+- **Ablation:** `nbits ∈ {1, 2, 4}` with one index and one TREC run per value.
+  The index-stat JSON records both requested `nbits` and observed
+  `effective_nbits`.
+- **Evaluation:** `ranx` computes NDCG@10, MRR@10, MAP, and Recall@100 in
+  [src/eval/metrics.py](src/eval/metrics.py). Per-query metric vectors are
+  saved for paired significance tests.
+- **Significance testing:** Paired Student's t-test over aligned per-query
+  metric vectors, with Holm-Bonferroni correction and bootstrap confidence
+  intervals through [src/eval/stats.py](src/eval/stats.py).
+- **Environment:** Python 3.10 conda environment `colbert-review`. This run
+  used CPU/MPS fallback rather than CUDA, so indexing was substantially slower
+  than a GPU run.
 
-## 3. Current Results
+## 3. Final Results
 
-### 3.1 Aggregate retrieval metrics — SciFact test (n=300)
+### 3.1 Aggregate Retrieval Metrics — SciFact Test (n=300)
 
-| System              | NDCG@10 | MRR@10 | MAP   | Recall@100 |
-| ------------------- | ------: | -----: | ----: | ---------: |
-| BM25                |  0.6641 | 0.6317 | 0.6251 |     0.8759 |
-| ColBERTv2, nbits=2  |  **0.6898** | **0.6646** | **0.6577** |     **0.9160** |
-| ColBERTv2, nbits=4  |  0.6898 | 0.6646 | 0.6577 |     0.9160 |
-| ColBERTv2, nbits=1  |  *(not run)* | — | — | — |
+| System             | NDCG@10 | MRR@10 | MAP    | Recall@100 |
+| ------------------ | ------: | -----: | -----: | ---------: |
+| BM25               |  0.6641 | 0.6317 | 0.6251 |     0.8759 |
+| ColBERTv2 nbits=1  |  0.6924 | 0.6693 | 0.6623 |     0.9120 |
+| ColBERTv2 nbits=2  |  0.6924 | 0.6693 | 0.6623 |     0.9120 |
+| ColBERTv2 nbits=4  |  0.6924 | 0.6693 | 0.6623 |     0.9120 |
 
-ColBERTv2 outperforms BM25 on every metric. The gain is largest on
-Recall@100 (+4.0 pp), consistent with late interaction's known strength on
-queries whose relevant documents use paraphrased or semantically related
-vocabulary rather than exact term overlap — exactly the pattern SciFact's
-biomedical claim-evidence pairs exhibit.
+ColBERTv2 improves over BM25 by about +0.0283 NDCG@10, +0.0376 MRR@10,
++0.0371 MAP, and +0.0361 Recall@100.
 
-### 3.2 Index footprint and query latency
+### 3.2 Index Footprint and Query Latency
 
 | nbits | Build time | Index size | Search total | Latency p50 | Latency p95 |
 | :---: | ---------: | ---------: | -----------: | ----------: | ----------: |
-|   2   |     18.58 s |    84.95 MiB |       140.05 s |       407.6 ms |       700.5 ms |
-|   4   |     19.75 s |    84.95 MiB |       102.81 s |       301.0 ms |       596.5 ms |
+|   1   |   1092.6 s |   84.95 MiB |       22.4 s |     63.1 ms |    188.0 ms |
+|   2   |   1284.5 s |   84.95 MiB |       22.6 s |     69.2 ms |     76.5 ms |
+|   4   |   1261.4 s |   84.95 MiB |       22.7 s |     66.4 ms |     77.8 ms |
 
-Both indexes were built independently (different on-disk paths, different
-build times), yet produced byte-identical sizes (`index_bytes = 89,076,819`).
-See §4 for why this is interesting.
+The equal index sizes suggest that, for this small SciFact corpus, fixed
+metadata and other index files dominate the measured on-disk footprint. The
+identical retrieval metrics indicate that this dataset is not large or
+sensitive enough for the selected `nbits` values to change the final top-100
+rankings.
 
-### 3.3 Figures generated
+### 3.3 Significance Testing
 
-Located in [results/figures/](results/figures/):
+The BM25-to-ColBERT deltas are positive but not Holm-significant:
 
-- `bm25_ndcg_hist.png` — per-query NDCG@10 distribution under BM25.
-- `ablation_size_vs_ndcg.png` — index size vs. NDCG@10 across `nbits` values.
-- `ablation_metrics_bar.png` — multi-metric bar chart (BM25 vs. each
-  ColBERTv2 variant).
-- `ablation_latency.png` — query latency p50/p95 vs. `nbits`.
+| Comparison | Metric | Delta | Raw p-value | Holm significant |
+| ---------- | ------ | ----: | ----------: | :--------------: |
+| BM25 → ColBERT nbits=2 | NDCG@10 | +0.0283 | 0.1148 | No |
+| BM25 → ColBERT nbits=2 | MRR@10  | +0.0376 | 0.0540 | No |
 
-## 4. Open Question — `nbits=2` ≡ `nbits=4`?
+Because the three ColBERT variants produced identical per-query scores, their
+pairwise deltas are zero.
 
-The `nbits=2` and `nbits=4` results are **identical to four decimal places
-on every reported metric**, despite being produced from independently built
-indexes that observably differ in latency (140 s vs. 103 s search total).
-Index sizes are also identical to the byte. Three plausible explanations:
+## 4. Implementation Notes
 
-1. **Real null result.** At SciFact's scale (5K docs), per-token residual
-   quantization noise is small relative to the late-interaction signal, so
-   the candidate generation and final MaxSim re-ranking agree exactly on the
-   top-100 ordering for every query. The latency delta would then come from
-   faster decompression at higher `nbits` (less computation in the residual
-   decoder despite the same on-disk footprint).
-2. **RAGatouille / colbert-ai parameter passthrough issue.** The `nbits`
-   value may not be propagated correctly to the underlying residual codec,
-   so both indexes end up encoded with the same effective compression.
-3. **ColBERTv2 internal cap.** The ColBERTv2 residual codec might cap
-   precision below 4 bits regardless of the requested `nbits`.
+The main implementation issue was that RAGatouille did not reliably expose
+`nbits` as an `index()` keyword argument. The project now sets
+`rag_model.model.config.nbits` before indexing and records `effective_nbits` in
+the index-stat output. A regression test in
+[tests/test_colbert_index.py](tests/test_colbert_index.py) protects this
+behavior.
 
-This needs to be resolved before the final report makes any claim about the
-size/quality trade-off. The investigation plan: read
-`colbert.indexing.codecs.residual.ResidualCodec`, inspect on-disk centroid
-and residual files for both indexes, and either confirm a real null result
-(which is itself a publishable observation) or file a dependency issue.
+The repo also now includes a lightweight summary script,
+[scripts/summarize_ablation.py](scripts/summarize_ablation.py), so existing
+ColBERT outputs can be summarized without rebuilding indexes.
 
-## 5. What Remains
+## 5. Generated Artifacts
 
-In priority order:
+- Metrics JSON/CSV: [results/metrics/](results/metrics/)
+- Figures: [results/figures/metrics_bar.png](results/figures/metrics_bar.png)
+  and [results/figures/nbits_size_vs_ndcg.png](results/figures/nbits_size_vs_ndcg.png)
+- Report source: [report/report.tex](report/report.tex)
+- Ignored large local artifacts: SciFact data, RAGatouille indexes, and TREC
+  run files.
 
-1. **Run notebook 04 to completion.** Both the test harness and the four
-   planned report figures are already implemented; this step *applies* the
-   already-validated `paired_ttest` and `holm_bonferroni` functions from
-   [src/eval/stats.py](src/eval/stats.py) to the actual BM25 and ColBERTv2
-   per-query metric vectors (n=300 paired observations) and renders the
-   figures from the resulting numbers. Output: corrected p-values and
-   bootstrap CIs for the §3.1 deltas.
-2. **Resolve §4** (the `nbits=2`/`nbits=4` equivalence) by inspection.
-3. **Add `nbits=1`** to the ablation. Most aggressive compression point and
-   the most informative single missing measurement.
-4. **Run notebook 05** ([notebooks/05_colbert_maxsim_viz.ipynb](notebooks/05_colbert_maxsim_viz.ipynb)),
-   which loads the same checkpoint outside RAGatouille, encodes
-   query 13 (*"5% of perinatal mortality is due to low birth weight"*)
-   against gold doc 1606628, and produces a MaxSim heatmap. Sanity check on
-   un-quantized FP32 produced a final ColBERT score of **14.78**, matching
-   the score recorded in `results/runs/colbert_smoke50.trec` for that pair.
-   Intended use: explanatory figure in the report's Background section, not
-   a result.
-5. **Write the report.** Stand up `report/` with a LaTeX skeleton and
-   populate Methods / Results from notebooks 04 and 05.
+## 6. What Remains
 
-## 6. Reproducibility Notes
+1. Compile [report/report.tex](report/report.tex) to PDF in Overleaf or after
+   installing a local TeX distribution such as MacTeX.
+2. Read through the final report prose and adjust any course-specific wording
+   or page-length requirements.
+3. Optionally add one qualitative example or MaxSim visualization if the final
+   review needs more interpretability discussion.
+4. Commit and push the finished repo when ready.
 
-All commands are wired through `make`; canonical entrypoints live in
-`scripts/`. To reproduce results to date from a fresh clone:
+## 7. Reproducibility Commands
 
 ```bash
-make setup          # pip install -r requirements.txt
-make data           # downloads SciFact via BEIR
-make bm25           # results/runs/bm25.trec
-make ablation       # results/runs/colbert_nbits{1,2,4}.trec
-make eval EXP=bm25
-make eval EXP=colbert_nbits2
-# (notebook 04 takes over from here for significance + figures)
+conda env create -f environment.yml
+conda activate colbert-review
+make data
+make test
+make bm25
+make ablation
+make summarize
+make stats
+make figures
 ```
 
-ColBERTv2 indexing requires CUDA in practice. On Windows, WSL2 is required
-because ColBERT's compiled CUDA kernels are unstable on native Windows.
-BM25 and the eval harness run fine on CPU.
+If the indexes already exist and only the tables need to be regenerated, run:
 
-The full plumbing (data loading, retrievers, evaluators, statistics, tests)
-is in place. The remaining work is ablation completeness, significance
-testing, the `nbits` investigation, and writing.
+```bash
+make summarize stats figures
+```

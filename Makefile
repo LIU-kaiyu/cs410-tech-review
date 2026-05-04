@@ -1,4 +1,4 @@
-.PHONY: help setup data test bm25 colbert ablation eval figures report clean all
+.PHONY: help setup data test bm25 colbert ablation eval summarize stats figures report clean all
 
 PYTHON ?= python
 DATASET ?= scifact
@@ -14,6 +14,8 @@ help:
 	@echo "  colbert    Build ColBERT index (nbits=2) and produce run file"
 	@echo "  ablation   Sweep nbits in {1,2,4}"
 	@echo "  eval       Evaluate a run file (EXP=<name>)"
+	@echo "  summarize  Summarize existing ColBERT nbits results"
+	@echo "  stats      Pairwise paired t-tests across BM25 and ColBERT variants"
 	@echo "  figures    Generate figures from results/metrics"
 	@echo "  report     Compile LaTeX report"
 	@echo "  clean      Remove indices and generated artifacts"
@@ -44,6 +46,18 @@ ablation:
 eval:
 	$(PYTHON) scripts/run_eval.py --run results/runs/$(EXP).trec --out results/metrics/$(EXP).json
 
+summarize:
+	$(PYTHON) scripts/summarize_ablation.py --metrics-dir results/metrics --nbits 1 2 4
+
+stats:
+	$(PYTHON) scripts/run_stats.py --inputs \
+	  results/metrics/bm25.json \
+	  results/metrics/colbert_nbits1.json \
+	  results/metrics/colbert_nbits2.json \
+	  results/metrics/colbert_nbits4.json \
+	  --metrics ndcg@10 mrr@10 map recall@100 \
+	  --out results/metrics/pairwise_ttests.csv
+
 figures:
 	$(PYTHON) scripts/make_figures.py --metrics-dir results/metrics --out-dir results/figures
 
@@ -55,4 +69,4 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 
-all: data test bm25 colbert ablation figures
+all: data test bm25 ablation summarize stats figures

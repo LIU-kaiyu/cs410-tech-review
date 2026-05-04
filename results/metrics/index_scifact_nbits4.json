@@ -1,0 +1,10 @@
+{
+  "index_name": "scifact_nbits4",
+  "nbits": 4,
+  "effective_nbits": 4,
+  "n_docs": 5183,
+  "build_time_s": 1261.3970060409629,
+  "index_bytes": 89078355,
+  "index_mib": 84.95173931121826,
+  "index_path": ".ragatouille/colbert/indexes/scifact_nbits4"
+}

@@ -3,9 +3,12 @@ torch>=2.1.0,<2.4.0
 transformers>=4.36.0,<4.45.0
 faiss-cpu>=1.7.4
 
-# ColBERT via RAGatouille
-ragatouille>=0.0.8
+# ColBERT via RAGatouille.
+# Keep the Stanford ColBERT backend while this review uses its PLAID index layout.
+ragatouille>=0.0.8,<0.0.10
 colbert-ai>=0.2.19
+# RAGatouille 0.0.9 imports legacy langchain.retrievers paths removed in 1.x.
+langchain>=0.1.0,<0.2.0
 
 # BM25 baseline
 rank_bm25>=0.2.2
