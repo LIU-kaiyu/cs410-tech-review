@@ -1,0 +1,9 @@
+{
+  "index_name": "scifact_nbits2",
+  "nbits": 2,
+  "n_docs": 5183,
+  "build_time_s": 18.580810619983822,
+  "index_bytes": 89076819,
+  "index_mib": 84.95027446746826,
+  "index_path": ".ragatouille/colbert/indexes/scifact_nbits2"
+}

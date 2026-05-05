@@ -83,13 +83,13 @@ those circled values. Two properties stand out. First, the argmax positions are
 spread across the document rather than concentrated in one place, so different
 query tokens latch onto different document regions. Second, several query tokens
 (q0--q4, q28--q29) fire on a cluster of highly similar document tokens near
-position~190 (bright yellow), corresponding to the most semantically aligned
-span. BM25 cannot replicate this behavior because it has no mechanism to match a
-query concept to a paraphrased or synonym-bearing document span.
+position~190, corresponding to the most semantically aligned span. BM25 cannot
+replicate this behavior because it has no mechanism to match a query concept to
+a paraphrased or synonym-bearing document span.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\linewidth]{../results/figures/colbert_maxsim_q13.png}
+  \includegraphics[width=\linewidth]{results/figures/colbert_maxsim_q13.png}
   \caption{ColBERT MaxSim heatmap for SciFact query~13 against document~1606628
   (final score\,=\,14.777). Rows are query token positions (q0--q31); columns
   are document token positions (d0--d214); color encodes cosine similarity.
@@ -250,7 +250,7 @@ when exact word overlap is incomplete.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\linewidth]{../results/figures/metrics_bar.png}
+  \includegraphics[width=\linewidth]{results/figures/metrics_bar.png}
   \caption{BM25 and ColBERTv2 retrieval metrics. ColBERTv2 improves every
   aggregate metric, while the three \texttt{nbits} variants overlap exactly.}
   \label{fig:metrics}
@@ -258,7 +258,7 @@ when exact word overlap is incomplete.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\linewidth]{../results/figures/bm25_colbert_delta.png}
+  \includegraphics[width=\linewidth]{results/figures/bm25_colbert_delta.png}
   \caption{Metric deltas for ColBERTv2 \texttt{nbits=2} minus BM25. The largest
   practical improvements are on MRR@10, MAP, and Recall@100.}
   \label{fig:delta}
@@ -329,7 +329,7 @@ metrics.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\linewidth]{../results/figures/nbits_ablation_bars.png}
+  \includegraphics[width=\linewidth]{results/figures/nbits_ablation_bars.png}
   \caption{The expected residual-compression trade-off is not visible on
   SciFact: \texttt{nbits}=1, 2, and 4 all measure 84.95 MiB and 0.6924
   NDCG@10. The repeated bars make the null result explicit.}
@@ -344,7 +344,7 @@ benchmarks.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\linewidth]{../results/figures/nbits_latency.png}
+  \includegraphics[width=\linewidth]{results/figures/nbits_latency.png}
   \caption{ColBERT query latency across residual-compression settings. Median
   latency is similar, while \texttt{nbits=1} shows a larger p95 tail.}
   \label{fig:latency}
